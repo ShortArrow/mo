@@ -7,6 +7,12 @@ export interface TreeNode {
   file: FileEntry | null;
 }
 
+// FileEntry.path is absolute and in the server's own OS form, so a leading "/"
+// means POSIX, where a backslash is a legal character inside a file name.
+function splitPath(path: string): string[] {
+  return path.startsWith("/") ? path.split("/") : path.split(/[/\\]/);
+}
+
 export function buildTree(files: FileEntry[]): TreeNode {
   if (files.length === 0) {
     return { name: "", fullPath: "", children: [], file: null };
@@ -32,7 +38,7 @@ export function buildTree(files: FileEntry[]): TreeNode {
   }
 
   // Split each file path into segments once
-  const splitPaths = fsFiles.map((f) => f.path.split("/"));
+  const splitPaths = fsFiles.map((f) => splitPath(f.path));
   const dirSegmentsList = splitPaths.map((parts) => parts.slice(0, -1));
 
   // Find common prefix among directory parts

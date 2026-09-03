@@ -11,6 +11,11 @@ function makeUploadedFile(id: string, name: string): FileEntry {
   return { id, name, path: "", uploaded: true };
 }
 
+function makeWindowsFile(id: string, path: string): FileEntry {
+  const name = path.split("\\").pop()!;
+  return { id, name, path };
+}
+
 describe("buildTree", () => {
   it("builds tree from multiple directories", () => {
     const files = [
@@ -148,5 +153,57 @@ describe("buildTree", () => {
     expect(root.children[1].name).toBe("a.md");
     expect(root.children[2].name).toBe("dropped.md");
     expect(root.children[2].file?.id).toBe("3");
+  });
+
+  it("treats a backslash in a POSIX file name as part of the name", () => {
+    const files = [makeFile("1", "/docs/a.md"), makeFile("2", "/docs/we\\ird.md")];
+    const root = buildTree(files);
+
+    expect(root.children.map((c) => c.name)).toEqual(["a.md", "we\\ird.md"]);
+    expect(root.children.every((c) => c.file != null)).toBe(true);
+  });
+
+  it("builds tree from Windows paths", () => {
+    const files = [
+      makeWindowsFile("1", "V:\\proj\\docs\\a.md"),
+      makeWindowsFile("2", "V:\\proj\\docs\\sub\\b.md"),
+      makeWindowsFile("3", "V:\\proj\\docs\\other\\c.md"),
+    ];
+    const root = buildTree(files);
+
+    expect(root.children.length).toBe(3);
+    expect(root.children[0].name).toBe("other");
+    expect(root.children[0].file).toBeNull();
+    expect(root.children[0].children[0].file?.id).toBe("3");
+    expect(root.children[1].name).toBe("sub");
+    expect(root.children[1].children[0].file?.id).toBe("2");
+    expect(root.children[2].name).toBe("a.md");
+    expect(root.children[2].file?.id).toBe("1");
+  });
+
+  it("builds tree from UNC paths", () => {
+    const files = [
+      makeWindowsFile("1", "\\\\srv\\share\\docs\\a.md"),
+      makeWindowsFile("2", "\\\\srv\\share\\docs\\sub\\b.md"),
+    ];
+    const root = buildTree(files);
+
+    expect(root.children.length).toBe(2);
+    expect(root.children[0].name).toBe("sub");
+    expect(root.children[0].children[0].file?.id).toBe("2");
+    expect(root.children[1].name).toBe("a.md");
+  });
+
+  it("collapses single-child directory chains on Windows paths", () => {
+    const files = [
+      makeWindowsFile("1", "C:\\root\\a\\b\\c\\file.md"),
+      makeWindowsFile("2", "C:\\root\\x\\file2.md"),
+    ];
+    const root = buildTree(files);
+
+    expect(root.children.length).toBe(2);
+    const collapsed = root.children.find((c) => c.name.startsWith("a"));
+    expect(collapsed?.name).toBe("a/b/c");
+    expect(collapsed?.children[0].file?.id).toBe("1");
   });
 });
