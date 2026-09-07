@@ -1,5 +1,23 @@
 # Changelog
 
+## [v1.6.8](https://github.com/k1LoW/mo/compare/v1.6.7...v1.6.8) - 2026-09-07
+
+### New Features 🎉
+- fix(server): follow symlink directories in recursive patterns by @conao3 in https://github.com/k1LoW/mo/pull/275
+### Fix bug 🐛
+- Fix cross-platform path separator in file tree by @tobiashochguertel in https://github.com/k1LoW/mo/pull/272
+- fix(server): correct watch and pattern bookkeeping around symlink aliases by @k1LoW in https://github.com/k1LoW/mo/pull/280
+### Dependency Updates ⬆️
+- chore(deps): bump mermaid from 11.16.0 to 11.16.1 in /internal/frontend by @dependabot[bot] in https://github.com/k1LoW/mo/pull/266
+- chore(deps): bump the dependencies group in /internal/frontend with 12 updates by @dependabot[bot] in https://github.com/k1LoW/mo/pull/265
+- chore(deps): bump the dependencies group with 2 updates by @dependabot[bot] in https://github.com/k1LoW/mo/pull/264
+- chore(deps): bump the dependencies group across 1 directory with 15 updates by @dependabot[bot] in https://github.com/k1LoW/mo/pull/278
+- chore(deps): bump golang.org/x/text from 0.40.0 to 0.41.0 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/mo/pull/269
+- chore(deps): bump Songmu/tagpr from 1.20.1 to 1.20.2 in the dependencies group by @dependabot[bot] in https://github.com/k1LoW/mo/pull/277
+### Other Changes
+- feat(server): return path segments for the file tree, keep path OS-native by @k1LoW in https://github.com/k1LoW/mo/pull/281
+- ci: run tests on windows-latest by @ShortArrow in https://github.com/k1LoW/mo/pull/279
+
 ## [v1.6.7](https://github.com/k1LoW/mo/compare/v1.6.6...v1.6.7) - 2026-08-03
 
 ### Fix bug 🐛
