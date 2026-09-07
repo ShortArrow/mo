@@ -2,6 +2,7 @@ package backup
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -130,7 +131,7 @@ func TestPath(t *testing.T) {
 		t.Fatalf("Path returned error: %v", err)
 	}
 
-	want := dir + "/mo/backup/mo-6275.json"
+	want := filepath.Join(dir, "mo", "backup", "mo-6275.json")
 	if p != want {
 		t.Fatalf("got %s, want %s", p, want)
 	}
