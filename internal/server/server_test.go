@@ -2619,6 +2619,64 @@ func TestGroupsReturnsDeepCopies(t *testing.T) {
 	}
 }
 
+// TestSplitSlashPath verifies that a path is reduced to the components the
+// frontend builds its tree from, for every rooted shape the supported
+// platforms produce.
+func TestSplitSlashPath(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{"posix absolute", "/home/me/docs/a.md", []string{"home", "me", "docs", "a.md"}},
+		{"windows drive", "C:/Users/me/docs/a.md", []string{"C:", "Users", "me", "docs", "a.md"}},
+		{"windows unc", "//server/share/docs/a.md", []string{"server", "share", "docs", "a.md"}},
+		{"redundant separators", "/home//me/a.md", []string{"home", "me", "a.md"}},
+		{"bare name", "a.md", []string{"a.md"}},
+		{"empty", "", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := splitSlashPath(tt.in)
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("splitSlashPath(%q) = %v, want %v", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestAddFile_PopulatesSegments verifies that an added file carries both the
+// OS-native path and its component form, so clients never have to split it
+// themselves.
+func TestAddFile_PopulatesSegments(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "nested", "doc.md")
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("# Doc"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	s := newTestState(t)
+	entry, err := s.AddFile(file, DefaultGroup)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if entry.Path != file {
+		t.Errorf("Path = %q, want %q (OS-native)", entry.Path, file)
+	}
+	want := splitSlashPath(filepath.ToSlash(file))
+	if !slices.Equal(entry.Segments, want) {
+		t.Errorf("Segments = %v, want %v", entry.Segments, want)
+	}
+	if got := entry.Segments[len(entry.Segments)-1]; got != "doc.md" {
+		t.Errorf("last segment = %q, want %q", got, "doc.md")
+	}
+}
+
 // TestFileEntry_MarshalJSON_NormalizesPathSeparator verifies that JSON
 // serialization converts OS-native path separators to forward slashes so the
 // frontend's buildTree.ts can split paths consistently on all platforms.

@@ -31,8 +31,9 @@ export function buildTree(files: FileEntry[]): TreeNode {
     return root;
   }
 
-  // Split each file path into segments once
-  const splitPaths = fsFiles.map((f) => f.path.split("/"));
+  // The server splits the path for us, since only it knows which separator its
+  // OS uses. `path` itself stays native for the tooltip and the copy-path menu.
+  const splitPaths = fsFiles.map((f) => f.segments ?? []);
   const dirSegmentsList = splitPaths.map((parts) => parts.slice(0, -1));
 
   // Find common prefix among directory parts

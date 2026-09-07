@@ -30,12 +30,20 @@ import (
 )
 
 type FileEntry struct {
-	Name     string `json:"name"`
-	ID       string `json:"id"`
-	Path     string `json:"path"`
-	Title    string `json:"title,omitempty"`
-	Uploaded bool   `json:"uploaded,omitempty"`
-	content  string // in-memory content for uploaded files
+	Name string `json:"name"`
+	ID   string `json:"id"`
+	// Path is the OS-native absolute path. It is what the SPA shows in
+	// tooltips and hands to the clipboard, and what the CLI echoes in its
+	// --json output, so it keeps the host's separator.
+	Path string `json:"path"`
+	// Segments is Path split into components, so no client has to know which
+	// separator the server's OS uses. Derived from Path at construction; both
+	// are immutable afterwards, which is why Groups() can share the backing
+	// array while copying the rest of the entry.
+	Segments []string `json:"segments,omitempty"`
+	Title    string   `json:"title,omitempty"`
+	Uploaded bool     `json:"uploaded,omitempty"`
+	content  string   // in-memory content for uploaded files
 }
 
 // MarshalJSON serializes FileEntry for the frontend API, normalizing Path to
@@ -50,6 +58,30 @@ func (f *FileEntry) MarshalJSON() ([]byte, error) {
 		alias: alias(*f),
 		Path:  filepath.ToSlash(f.Path),
 	})
+}
+
+// pathSegments splits an OS-native path into its components. ToSlash keeps a
+// backslash inside a name intact on platforms where it is a legal character,
+// which a naive split on both separators would corrupt.
+func pathSegments(absPath string) []string {
+	return splitSlashPath(filepath.ToSlash(absPath))
+}
+
+// splitSlashPath splits a forward-slash path, dropping empty components so a
+// rooted POSIX path, a drive letter and a UNC share all yield segments that
+// line up positionally for prefix comparison.
+func splitSlashPath(slashPath string) []string {
+	parts := strings.Split(slashPath, "/")
+	segments := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != "" {
+			segments = append(segments, p)
+		}
+	}
+	if len(segments) == 0 {
+		return nil
+	}
+	return segments
 }
 
 const headFileSizeLimit = 8192
@@ -339,10 +371,11 @@ func (s *State) AddFile(absPath, groupName string) (*FileEntry, error) {
 	}
 
 	entry := &FileEntry{
-		Name:  filepath.Base(absPath),
-		ID:    FileID(absPath),
-		Path:  absPath,
-		Title: title,
+		Name:     filepath.Base(absPath),
+		ID:       FileID(absPath),
+		Path:     absPath,
+		Segments: pathSegments(absPath),
+		Title:    title,
 	}
 	g.Files = append(g.Files, entry)
 
