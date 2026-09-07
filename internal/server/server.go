@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,26 +31,42 @@ import (
 )
 
 type FileEntry struct {
-	Name     string `json:"name"`
-	ID       string `json:"id"`
-	Path     string `json:"path"`
-	Title    string `json:"title,omitempty"`
-	Uploaded bool   `json:"uploaded,omitempty"`
-	content  string // in-memory content for uploaded files
+	Name string `json:"name"`
+	ID   string `json:"id"`
+	// Path is the OS-native absolute path. It is what the SPA shows in
+	// tooltips and hands to the clipboard, and what the CLI echoes in its
+	// --json output, so it keeps the host's separator.
+	Path string `json:"path"`
+	// Segments is Path split into components, so no client has to know which
+	// separator the server's OS uses.
+	Segments []string `json:"segments,omitempty"`
+	Title    string   `json:"title,omitempty"`
+	Uploaded bool     `json:"uploaded,omitempty"`
+	content  string   // in-memory content for uploaded files
 }
 
-// MarshalJSON serializes FileEntry for the frontend API, normalizing Path to
-// forward slashes so buildTree.ts path splitting works cross-platform.
-// The internal Path field stays OS-native for server-side comparisons and I/O.
-func (f *FileEntry) MarshalJSON() ([]byte, error) {
-	type alias FileEntry
-	return json.Marshal(struct {
-		alias
-		Path string `json:"path"`
-	}{
-		alias: alias(*f),
-		Path:  filepath.ToSlash(f.Path),
-	})
+// pathSegments splits an OS-native path into its components. ToSlash keeps a
+// backslash inside a name intact on platforms where it is a legal character,
+// which a naive split on both separators would corrupt.
+func pathSegments(absPath string) []string {
+	return splitSlashPath(filepath.ToSlash(absPath))
+}
+
+// splitSlashPath splits a forward-slash path, dropping empty components so a
+// rooted POSIX path, a drive letter and a UNC share all yield segments that
+// line up positionally for prefix comparison.
+func splitSlashPath(slashPath string) []string {
+	parts := strings.Split(slashPath, "/")
+	segments := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != "" {
+			segments = append(segments, p)
+		}
+	}
+	if len(segments) == 0 {
+		return nil
+	}
+	return segments
 }
 
 const headFileSizeLimit = 8192
@@ -339,10 +356,11 @@ func (s *State) AddFile(absPath, groupName string) (*FileEntry, error) {
 	}
 
 	entry := &FileEntry{
-		Name:  filepath.Base(absPath),
-		ID:    FileID(absPath),
-		Path:  absPath,
-		Title: title,
+		Name:     filepath.Base(absPath),
+		ID:       FileID(absPath),
+		Path:     absPath,
+		Segments: pathSegments(absPath),
+		Title:    title,
 	}
 	g.Files = append(g.Files, entry)
 
@@ -406,7 +424,10 @@ func (s *State) Groups() []Group {
 	// Deep-copy each Group and its FileEntry pointers while holding the lock
 	// so callers (e.g. JSON encoding after the lock is released) never share
 	// state with in-place mutations such as notifyFileChangedByPath's Title
-	// updates or RemoveFilesByPath's slice compaction.
+	// updates or RemoveFilesByPath's slice compaction. Segments is cloned for
+	// the same reason: nothing mutates it today, but the returned entries
+	// outlive the lock, so relying on every caller leaving it alone would put
+	// the guarantee back in the callers' hands.
 	result := make([]Group, 0, len(s.groups))
 	for _, g := range s.groups {
 		var files []*FileEntry
@@ -414,6 +435,7 @@ func (s *State) Groups() []Group {
 			files = make([]*FileEntry, len(g.Files))
 			for i, f := range g.Files {
 				fc := *f
+				fc.Segments = slices.Clone(f.Segments)
 				files[i] = &fc
 			}
 		}

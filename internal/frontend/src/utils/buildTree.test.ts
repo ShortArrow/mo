@@ -2,9 +2,15 @@ import { describe, it, expect } from "vitest";
 import type { FileEntry } from "../hooks/useApi";
 import { buildTree } from "./buildTree";
 
+// Mirrors what the server sends: a native path plus the segments it split off.
 function makeFile(id: string, path: string): FileEntry {
-  const name = path.split("/").pop()!;
-  return { id, name, path };
+  const segments = path.split("/").filter(Boolean);
+  return { id, name: segments[segments.length - 1], path, segments };
+}
+
+function makeWindowsFile(id: string, path: string): FileEntry {
+  const segments = path.split("\\").filter(Boolean);
+  return { id, name: segments[segments.length - 1], path, segments };
 }
 
 function makeUploadedFile(id: string, name: string): FileEntry {
@@ -131,6 +137,24 @@ describe("buildTree", () => {
       "i11.md",
       "i13.md",
     ]);
+  });
+
+  it("builds the tree from Windows-shaped segments", () => {
+    const files = [
+      makeWindowsFile("1", "C:\\Users\\me\\docs\\a.md"),
+      makeWindowsFile("2", "C:\\Users\\me\\docs\\sub\\b.md"),
+      makeWindowsFile("3", "C:\\Users\\me\\docs\\other\\c.md"),
+    ];
+    const root = buildTree(files);
+
+    expect(root.children.length).toBe(3);
+    expect(root.children[0].name).toBe("other");
+    expect(root.children[0].file).toBeNull();
+    expect(root.children[0].children[0].file?.id).toBe("3");
+    expect(root.children[1].name).toBe("sub");
+    expect(root.children[1].children[0].file?.id).toBe("2");
+    expect(root.children[2].name).toBe("a.md");
+    expect(root.children[2].file?.id).toBe("1");
   });
 
   it("mixes filesystem and uploaded files", () => {
