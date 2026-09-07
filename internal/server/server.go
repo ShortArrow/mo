@@ -1726,8 +1726,11 @@ func handleUploadFile(state *State) http.HandlerFunc {
 		r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 		var req uploadFileRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			var maxBytesErr *http.MaxBytesError
-			if errors.As(err, &maxBytesErr) {
+			// The matched value is discarded because its Limit is maxRequestSize,
+			// the envelope headroom, not the 10MB content limit this message
+			// reports. Only the match itself matters, and handlerrors reads that
+			// blank as a dropped error, hence the suppression.
+			if _, ok := errors.AsType[*http.MaxBytesError](err); ok { //nostyle:handlerrors
 				http.Error(w, "file too large (max 10MB)", http.StatusRequestEntityTooLarge)
 				return
 			}
