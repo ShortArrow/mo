@@ -46,20 +46,6 @@ type FileEntry struct {
 	content  string   // in-memory content for uploaded files
 }
 
-// MarshalJSON serializes FileEntry for the frontend API, normalizing Path to
-// forward slashes so buildTree.ts path splitting works cross-platform.
-// The internal Path field stays OS-native for server-side comparisons and I/O.
-func (f *FileEntry) MarshalJSON() ([]byte, error) {
-	type alias FileEntry
-	return json.Marshal(struct {
-		alias
-		Path string `json:"path"`
-	}{
-		alias: alias(*f),
-		Path:  filepath.ToSlash(f.Path),
-	})
-}
-
 // pathSegments splits an OS-native path into its components. ToSlash keeps a
 // backslash inside a name intact on platforms where it is a legal character,
 // which a naive split on both separators would corrupt.
