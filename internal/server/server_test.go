@@ -2617,6 +2617,21 @@ func TestGroupsReturnsDeepCopies(t *testing.T) {
 	if final[0].Files[0].ID != entry.ID {
 		t.Fatalf("got file ID %q, want %q", final[0].Files[0].ID, entry.ID)
 	}
+
+	// (c) Slice-valued fields must be cloned too: mutating a returned entry's
+	// Segments in place must not reach internal state.
+	groups3 := s.Groups()
+	wantSegments := slices.Clone(entry.Segments)
+	if len(groups3[0].Files[0].Segments) == 0 {
+		t.Fatal("expected the returned entry to carry Segments")
+	}
+	groups3[0].Files[0].Segments[0] = "mutated-segment"
+
+	afterSegments := s.Groups()
+	if !slices.Equal(afterSegments[0].Files[0].Segments, wantSegments) {
+		t.Fatalf("internal Segments mutated via returned copy: got %v, want %v",
+			afterSegments[0].Files[0].Segments, wantSegments)
+	}
 }
 
 // TestSplitSlashPath verifies that a path is reduced to the components the

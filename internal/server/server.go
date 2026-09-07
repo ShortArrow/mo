@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,9 +38,7 @@ type FileEntry struct {
 	// --json output, so it keeps the host's separator.
 	Path string `json:"path"`
 	// Segments is Path split into components, so no client has to know which
-	// separator the server's OS uses. Derived from Path at construction; both
-	// are immutable afterwards, which is why Groups() can share the backing
-	// array while copying the rest of the entry.
+	// separator the server's OS uses.
 	Segments []string `json:"segments,omitempty"`
 	Title    string   `json:"title,omitempty"`
 	Uploaded bool     `json:"uploaded,omitempty"`
@@ -425,7 +424,10 @@ func (s *State) Groups() []Group {
 	// Deep-copy each Group and its FileEntry pointers while holding the lock
 	// so callers (e.g. JSON encoding after the lock is released) never share
 	// state with in-place mutations such as notifyFileChangedByPath's Title
-	// updates or RemoveFilesByPath's slice compaction.
+	// updates or RemoveFilesByPath's slice compaction. Segments is cloned for
+	// the same reason: nothing mutates it today, but the returned entries
+	// outlive the lock, so relying on every caller leaving it alone would put
+	// the guarantee back in the callers' hands.
 	result := make([]Group, 0, len(s.groups))
 	for _, g := range s.groups {
 		var files []*FileEntry
@@ -433,6 +435,7 @@ func (s *State) Groups() []Group {
 			files = make([]*FileEntry, len(g.Files))
 			for i, f := range g.Files {
 				fc := *f
+				fc.Segments = slices.Clone(f.Segments)
 				files[i] = &fc
 			}
 		}
