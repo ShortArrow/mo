@@ -29,7 +29,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@shikijs/rehype": "^4.4.3",
     "github-markdown-css": "^5.8.1",
-    "katex": "^0.18.5",
+    "katex": "^0.18.6",
     "mermaid": "^11.17.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -61,7 +61,7 @@
     "rollup-plugin-license": "^3.7.1",
     "tailwindcss": "^4.3.3",
     "typescript": "~7.0.2",
-    "vite": "^8.2.2",
+    "vite": "^8.2.4",
     "vitest": "^4.1.11"
   }
 }
